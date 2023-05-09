@@ -8,6 +8,7 @@ library(caret)
 #library(RANN)
 #install.packages("labelled")
 library(labelled)
+#require RANN, ranger, glmnet
 
 #Data Import and Cleaning
 #gss_tbl1 <- read.spss("../data/GSS2016.sav", to.data.frame = TRUE)
@@ -22,13 +23,13 @@ gss_tbl_raw <- read_sav("../data/GSS2016.sav") #N = 2867, 961 vars
 #for analyses, need to convert to categorical or continuous
 #unlabelled() will convert to factor if all values have value label and continuance otherwise into numeric or character
 
-gss_tbl_raw %>% 
-  look_for("ABSINGLE") #ran table(absingle), all IAP, DK, NA already coverted to NA
-  
-unlabelled(gss_tbl_raw) %>% 
-  look_for("ABSINGLE") #coltype reverts to just dbl and no labels but same #missing
-#vars like ABSINGLE converted to factor. MOSTHRS converted to dbl
-#does this matter?
+# gss_tbl_raw %>% 
+#   look_for("ABSINGLE") #ran table(absingle), all IAP, DK, NA already coverted to NA
+#   
+# unlabelled(gss_tbl_raw) %>% 
+#   look_for("ABSINGLE") #coltype reverts to just dbl and no labels but same #missing
+# #vars like ABSINGLE converted to factor. MOSTHRS converted to dbl
+# #does this matter?
 
 gss_tbl <- gss_tbl_raw %>% 
   unlabelled() %>% 
@@ -41,8 +42,7 @@ gss_tbl <- gss_tbl_raw %>%
 #Visualization
 
 gss_tbl %>% 
-  ggplot(aes(x=workhours)) +
-  geom_histogram()
+  ggplot(aes(x=workhours)) + geom_histogram()
 
 
 
@@ -55,28 +55,47 @@ gss_tbl %>%
 ml_methods <- c("lm","glmnet","ranger","xgbLinear")
 
 
-
 #use 75/25 split
 split <- round(nrow(gss_tbl) * 0.75)
 train_gss <- gss_tbl[1:split,] #didnt do random shuffling of rows
-test_gss <- gss_tbl[(split+1):nrow(gss_tbl),]
+test_gss <- gss_tbl[(split+1):nrow(gss_tbl),] #holdout
+
+#for reproducibility and fair comparison across models, need same splits for training and holdout
+#create own trainControl object
+#first create train/test indexes
+set.seed(24)
+fold_indices <- createFolds(train_gss$workhours, k = 10)
+
+myControl <- trainControl(
+  method = "cv", 
+  number = 10, 
+  verboseIter = TRUE,
+  search = "grid",
+  indexOut = fold_indices  #why not indexOut or indexFinal?
+)
+
+tune_grid <- expand.grid(.mtry = )
+
 
 #Be sure to get estimates of both 10-fold CV and holdout CV.??
 
 model <- caret::train(
   workhours~.,
   data = train_gss, 
-  method = "glmnet", #with glmnet, default tests 3 alpha, 2 lambdas
-  preProcess = c("zv","medianImpute"), #does order matter here?
+  method = "ranger", #with glmnet, default tests 3 alpha, 2 lambdas
+  preProcess = c("zv","medianImpute"), #does order matter here? center and scale?
   na.action = na.pass,
   trControl = trainControl(
     method = "cv", 
     number = 10, 
     verboseIter = TRUE,
-    search = "grid"
+    search = "grid" #grid not appropriate for ranger
   )
 )
 predict(model, test_gss, na.action = na.pass)
+
+#error with ranger: Error: mtry can not be larger than number of variables in data. Ranger will EXIT now.
+#no error when search=random but richard said grid search
 
 #need to automate searching through plausible range of hyperparameters
 #adaptive sampling?
@@ -85,5 +104,17 @@ predict(model, test_gss, na.action = na.pass)
 #warnings about zero variance variables
 #go away if i add zv to preprocess
 #warnings-  prediction from a rank-deficient fit may be misleading
+
+
+#after running all models, save them as list
+model_list <- list(
+  glmnet = model_glmnet,
+  rf = model_ranger
+)
+
+#pass list to resamples() then summarize
+
+
+
 
 #Publication
