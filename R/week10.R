@@ -2,15 +2,11 @@
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
 library(haven)
-#library(foreign)
 library(caret)
-#install.packages("RANN")
-library(RANN)
+#library(RANN)
 
 #Data Import and Cleaning
-#gss_tbl1 <- read.spss("../data/GSS2016.sav", to.data.frame = TRUE)
 gss_tbl_raw <- read_sav("../data/GSS2016.sav") #N = 2867, 961 vars
-#works better than foreign::read.spss but creates weird class structure
 
 gss_tbl <- gss_tbl_raw %>% 
   rename(workhours = MOSTHRS) %>% 
