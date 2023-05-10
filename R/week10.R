@@ -77,6 +77,22 @@ myControl <- trainControl(
 tune_grid <- expand.grid(.mtry = )
 
 
+#for reproducibility and fair comparison across models, need same splits for training and holdout
+#create own trainControl object
+#first create train/test indexes
+set.seed(24)
+myFolds <- createFolds(train_gss$workhours, k = 10)
+
+myControl <- trainControl(
+  method = "cv", 
+  number = 10, 
+  verboseIter = TRUE,
+  search = "grid",
+  index = myFolds  #why not indexOut or indexFinal?
+)
+
+
+
 #Be sure to get estimates of both 10-fold CV and holdout CV.??
 
 model <- caret::train(
