@@ -54,16 +54,18 @@ gss_tbl %>%
 
 ml_methods <- c("lm","glmnet","ranger","xgbLinear")
 
+set.seed(24)
 
 #use 75/25 split
-split <- round(nrow(gss_tbl) * 0.75)
-train_gss <- gss_tbl[1:split,] #didnt do random shuffling of rows
-test_gss <- gss_tbl[(split+1):nrow(gss_tbl),] #holdout
+cv_index <- createDataPartition(gss_tbl$workhours, p = 0.75, list = FALSE)
+#split <- round(nrow(gss_tbl) * 0.75)
+train_gss <- gss_tbl[cv_index,] #didnt do random shuffling of rows
+test_gss <- gss_tbl[-cv_index,] #holdout
 
 #for reproducibility and fair comparison across models, need same splits for training and holdout
 #create own trainControl object
 #first create train/test indexes
-set.seed(24)
+
 fold_indices <- createFolds(train_gss$workhours, k = 10)
 
 myControl <- trainControl(
@@ -71,26 +73,15 @@ myControl <- trainControl(
   number = 10, 
   verboseIter = TRUE,
   search = "grid",
-  indexOut = fold_indices  #why not indexOut or indexFinal?
+  indexOut = fold_indices, #why not indexOut or indexFinal?
+  tuneLength = 3 #default is len 3
 )
 
-tune_grid <- expand.grid(.mtry = )
 
 
 #for reproducibility and fair comparison across models, need same splits for training and holdout
 #create own trainControl object
 #first create train/test indexes
-set.seed(24)
-myFolds <- createFolds(train_gss$workhours, k = 10)
-
-myControl <- trainControl(
-  method = "cv", 
-  number = 10, 
-  verboseIter = TRUE,
-  search = "grid",
-  index = myFolds  #why not indexOut or indexFinal?
-)
-
 
 
 #Be sure to get estimates of both 10-fold CV and holdout CV.??
@@ -98,16 +89,14 @@ myControl <- trainControl(
 model <- caret::train(
   workhours~.,
   data = train_gss, 
-  method = "ranger", #with glmnet, default tests 3 alpha, 2 lambdas
-  preProcess = c("zv","medianImpute"), #does order matter here? center and scale?
+  method = "glmnet", #with glmnet, default tests 3 alpha, 3 lambdas
+  preProcess = c("center","scale","zv","medianImpute"), #does order matter here? center and scale?
   na.action = na.pass,
-  trControl = trainControl(
-    method = "cv", 
-    number = 10, 
-    verboseIter = TRUE,
-    search = "grid" #grid not appropriate for ranger
-  )
+  trControl = myControl
 )
+
+
+
 predict(model, test_gss, na.action = na.pass)
 
 #error with ranger: Error: mtry can not be larger than number of variables in data. Ranger will EXIT now.
