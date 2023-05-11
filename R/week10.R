@@ -5,6 +5,8 @@ library(haven)
 library(caret)
 library(labelled)
 library(tictoc)
+set.seed(24)
+
 #require RANN, ranger, glmnet
 
 #Data Import and Cleaning
@@ -17,6 +19,7 @@ gss_tbl <- gss_tbl_raw %>%
   select(which(colMeans(is.na(.)) < 0.75)) #drop cols with >75% missingness. 538 vars left
 
 
+
 #Visualization
 
 gss_tbl %>% 
@@ -25,6 +28,59 @@ gss_tbl %>%
 
 
 #Analysis
+ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default values
+  
+  set.seed(24)
+  cv_index <- createDataPartition(dat$workhours, p = 0.75, list = FALSE)
+  train_dat <- dat[cv_index,] 
+  test_dat <- dat[-cv_index,] 
+  
+  fold_indices <- createFolds(train_dat$workhours, k = no_folds)
+  
+  
+  model <- caret::train(
+    workhours~.,
+    data = train_dat, 
+    metric = "Rsquared",
+    method = ml_model,
+    preProcess = c("center","scale","nzv","medianImpute"), 
+    na.action = na.pass,
+    trControl = trainControl(
+      method = "cv", 
+      number = no_folds, 
+      verboseIter = TRUE,
+      search = "grid",
+      indexOut = fold_indices 
+    )
+  )
+  
+  #save output in df
+  predicted <- predict(model, test_dat, na.action = na.pass)
+  
+  
+  results <- tibble(
+    model_name = ml_model,
+    cv_rsq = max( model[["results"]][["Rsquared"]]),
+    ho_rsq = cor(predicted, test_dat$workhours)
+  )
+  
+  return(results)
+  
+}
+
+tic()
+ml_function(ml_model = "glmnet")
+toc()
+
+#LOOP THROUGH ML_MODEL OPTIONS
+#SAVE RESULTS TBL IN LIST
+
+#INSTEAD OF RESULTS DF, SAVE AS SEPARATE VECTORS AND POPULATE NEW VECTOR THRU EACH ITERATION
+#SO FINAL SHOULD BE MODEL_NAME VECTOR, CV_RSQ VECTOR, AND HO_RSQ VECTOR WITH 4 ELEMENTS EACH
+#FOR LOOP OUTPUTS THESE VECTORS THEN PUBLICATION DOES FORMATTING?
+#DO THE DECIMAL POINT FORMATTING INSIDE FUNCTION
+
+
 
 #running OLS reg aka lm, elastic net aka glmnet, random forest aka ranger or rf, extreme gradient boosting aka
 #on caret website, there are 3 diff methods for eXtreme with diff numbers of hyperparameters
@@ -32,27 +88,8 @@ gss_tbl %>%
 
 ml_methods <- c("lm","glmnet","ranger","xgbLinear")
 
-set.seed(24)
 
 #use 75/25 split
-cv_index <- createDataPartition(gss_tbl$workhours, p = 0.75, list = FALSE)
-train_gss <- gss_tbl[cv_index,] #didnt do random shuffling of rows
-test_gss <- gss_tbl[-cv_index,] #holdout
-
-#for reproducibility and fair comparison across models, need same splits for training and holdout
-#create own trainControl object
-#first create train/test indexes
-
-fold_indices <- createFolds(train_gss$workhours, k = 10)
-
-myControl <- trainControl(
-  method = "cv", 
-  number = 10, 
-  verboseIter = TRUE,
-  search = "random",
-  indexOut = fold_indices #why not index or indexFinal?
- )
-
 
 
 #for reproducibility and fair comparison across models, need same splits for training and holdout
@@ -60,23 +97,50 @@ myControl <- trainControl(
 #first create train/test indexes
 
 
-#Be sure to get estimates of both 10-fold CV and holdout CV.??
-tic()
-model <- caret::train(
-  workhours~.,
-  data = train_gss, 
-  metric = "Rsquared",
-  method = "ranger", #with glmnet, default tests 3 alpha, 3 lambdas
-  preProcess = c("center","scale","nzv","medianImpute"), #does order matter here? center and scale? use nzv instead?
-  na.action = na.pass,
-  trControl = myControl
-  # tuneLength = 3, #default is len 3
-   #tuneGrid = expand.grid(.mtry = c(150,81,1841)) #takes foreever..
-  )
-#from ranger documentation
-#min node size, default 1 for class, 5 for regression, 3 for survival, 10 for prob
-toc()
+#for reproducibility and fair comparison across models, need same splits for training and holdout
+#create own trainControl object
+#first create train/test indexes
 
+
+##LM
+#lm on grid search, time elapsed = 46 sec
+# Resampling results:
+#   
+#   RMSE      Rsquared   MAE     
+# 126.0067  0.1416766  32.37984
+# 
+# Tuning parameter 'intercept' was held constant at a value of TRUE
+
+predicted <- predict(model, test_gss, na.action = na.pass)
+# Warning message:
+#   In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+cor(predicted, test_gss$workhours)
+# [1] -0.01872674
+
+
+##GLMNET
+#on grid search with 3 alpha, 3 lambdas = 124 secs
+# alpha  lambda     RMSE       Rsquared   MAE     
+# 0.10   0.8330873   4.777404  0.9171673  3.031020   #best model
+# 0.10   2.6344535   5.830942  0.8886126  4.033140
+# 0.10   8.3308735   8.609608  0.7777801  6.194248
+# 0.55   0.8330873   6.895614  0.8400237  4.731411
+# 0.55   2.6344535   9.353078  0.7084596  6.584342
+# 0.55   8.3308735  11.160454  0.6837524  8.254906
+# 1.00   0.8330873   8.305106  0.7651537  5.724268
+# 1.00   2.6344535   9.896860  0.6824147  7.018449
+# 1.00   8.3308735  13.005730  0.6752084  9.801693
+# 
+# Rsquared was used to select the optimal model using the largest value.
+# The final values used for the model were alpha = 0.1 and lambda = 0.8330873.
+
+predicted <- predict(model, test_gss, na.action = na.pass)
+# no warning
+cor(predicted, test_gss$workhours)
+# [1] 0.6729591
+
+#RANDOM FOREST
 #when ranger on grid with no customization, time is 511 seconds
 # mtry  splitrule   RMSE       Rsquared   MAE     
 # 2  variance    11.301201  0.8707799  8.337993
@@ -101,15 +165,14 @@ predicted <- predict(model, test_gss, na.action = na.pass,  metric = "Rsquared")
 
 cor(predicted, test_gss$workhours)
 
-#error with ranger: Error: mtry can not be larger than number of variables in data. Ranger will EXIT now.
-#no error when search=random but richard said grid search
+#EXTREME GRADIENT BOOSTING
 
 
-#warnings-  prediction from a rank-deficient fit may be misleading
 
 
 #after running all models, save them as list
 model_list <- list(
+  lm = model,
   glmnet = model_glmnet,
   rf = model_ranger
 )
