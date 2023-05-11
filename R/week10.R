@@ -1,5 +1,3 @@
-#Script Settings and Resources
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
 library(haven)
 library(caret)
@@ -71,15 +69,6 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default 
 tic()
 ml_function(ml_model = "glmnet")
 toc()
-
-#LOOP THROUGH ML_MODEL OPTIONS
-#SAVE RESULTS TBL IN LIST
-
-#INSTEAD OF RESULTS DF, SAVE AS SEPARATE VECTORS AND POPULATE NEW VECTOR THRU EACH ITERATION
-#SO FINAL SHOULD BE MODEL_NAME VECTOR, CV_RSQ VECTOR, AND HO_RSQ VECTOR WITH 4 ELEMENTS EACH
-#FOR LOOP OUTPUTS THESE VECTORS THEN PUBLICATION DOES FORMATTING?
-#DO THE DECIMAL POINT FORMATTING INSIDE FUNCTION
-
 
 
 #running OLS reg aka lm, elastic net aka glmnet, random forest aka ranger or rf, extreme gradient boosting aka
