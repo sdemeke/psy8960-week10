@@ -5,17 +5,14 @@ library(haven)
 library(caret)
 library(labelled)
 library(tictoc)
-#set.seed(24)
 
-#require RANN, ranger, glmnet
 
 #Data Import and Cleaning
 gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
   unlabelled() %>% 
   rename(workhours = MOSTHRS) %>% 
   drop_na(workhours) %>% #remove NAs in max hours worked variable, N = 570
-  select(which(colMeans(is.na(.)) < 0.75)) #drop cols with >75% missingness. 538 vars left
-
+  select(which(colMeans(is.na(.)) < 0.75))  #drop cols with >75% missingness. 538 vars left
 
 #do the vars need to be numeric??
 
@@ -26,7 +23,7 @@ gss_tbl %>%
 
 
 #Analysis
-ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default values
+ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 10) { #default values
   
   set.seed(24)
   cv_index <- createDataPartition(dat$workhours, p = 0.75, list = FALSE)
@@ -66,7 +63,7 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default 
 }
 
 
-ml_methods <- c("lm","glmnet","ranger","xgbLinear") 
+ml_methods <- c("lm","glmnet","ranger","xgbTree") 
  
 ml_results_list <- vector(mode="list")
 
@@ -105,7 +102,22 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 #                                                                                                                                                                                                               7: In nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  :
 #                                                                                                                                                                                                                                            There were missing values in resampled performance measures.
 
+# A tibble: 4 × 3 --- 3 folds
+# algo                      cv_rsq ho_rsq
+# <chr>                     <chr>  <chr> 
+#   1 OLS Regression            .02    "-.02"
+# 2 Elastic Net               .80    " .71"
+# 3 Random Forest             .87    " .68"
+# 4 eXtreme Gradient Boosting .83    " .64"
 
+#--10 folds
+# A tibble: 4 × 3
+# algo                      cv_rsq ho_rsq
+# <chr>                     <chr>  <chr> 
+# 1 OLS Regression            .17    "-.02"
+# 2 Elastic Net               .90    " .67"
+# 3 Random Forest             .91    " .69"
+# 4 eXtreme Gradient Boosting .92    " .64"
 
 
 #running OLS reg aka lm, elastic net aka glmnet, random forest aka ranger or rf, extreme gradient boosting aka
