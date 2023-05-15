@@ -1,16 +1,16 @@
+#Script Settings and Resources
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
 library(haven)
 library(caret)
 library(labelled)
 library(tictoc)
-set.seed(24)
+#set.seed(24)
 
 #require RANN, ranger, glmnet
 
 #Data Import and Cleaning
-gss_tbl_raw <- read_sav("../data/GSS2016.sav") #N = 2867, 961 vars
-
-gss_tbl <- gss_tbl_raw %>% 
+gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
   unlabelled() %>% 
   rename(workhours = MOSTHRS) %>% 
   drop_na(workhours) %>% #remove NAs in max hours worked variable, N = 570
@@ -47,7 +47,6 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default 
       method = "cv", 
       number = no_folds, 
       verboseIter = TRUE,
-      search = "grid",
       indexOut = fold_indices 
     )
   )
@@ -66,16 +65,38 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default 
   
 }
 
-tic()
-ml_function(ml_model = "glmnet")
-toc()
+
+ml_methods <- c("lm","glmnet","ranger","xgbLinear") #
+ 
+my_list <- vector(mode="list")
+
+
+for(i in 1:length(ml_methods)) {
+  
+ tic()
+  
+ my_list[[i]] <- ml_function(ml_model = ml_methods[i])
+ 
+ toc()
+  
+}
+
+
+#Publication
+
+table1_tbl <- do.call("rbind", my_list) %>% 
+  mutate(algo = c("OLS Regression","Elastic Net","Random Forest", "eXtreme Gradient Boosting"),
+         .before = cv_rsq)  %>% 
+  select(-c(model_name)) %>% 
+  mutate(across(ends_with("_rsq"), \(x)   gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
+
+
 
 
 #running OLS reg aka lm, elastic net aka glmnet, random forest aka ranger or rf, extreme gradient boosting aka
 #on caret website, there are 3 diff methods for eXtreme with diff numbers of hyperparameters
 #xgbDART, xgbLinear, and xgbTree
 
-ml_methods <- c("lm","glmnet","ranger","xgbLinear")
 
 
 #use 75/25 split
@@ -100,14 +121,6 @@ ml_methods <- c("lm","glmnet","ranger","xgbLinear")
 # 
 # Tuning parameter 'intercept' was held constant at a value of TRUE
 
-predicted <- predict(model, test_gss, na.action = na.pass)
-# Warning message:
-#   In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-cor(predicted, test_gss$workhours)
-# [1] -0.01872674
-
-
 ##GLMNET
 #on grid search with 3 alpha, 3 lambdas = 124 secs
 # alpha  lambda     RMSE       Rsquared   MAE     
@@ -123,11 +136,6 @@ cor(predicted, test_gss$workhours)
 # 
 # Rsquared was used to select the optimal model using the largest value.
 # The final values used for the model were alpha = 0.1 and lambda = 0.8330873.
-
-predicted <- predict(model, test_gss, na.action = na.pass)
-# no warning
-cor(predicted, test_gss$workhours)
-# [1] 0.6729591
 
 #RANDOM FOREST
 #when ranger on grid with no customization, time is 511 seconds
@@ -147,28 +155,3 @@ cor(predicted, test_gss$workhours)
 # 3              617  variance   4.474389  0.9340484  2.966425
 # 6              988  maxstat    6.578666  0.8638582  4.239857
 # 18             1141  variance   5.501925  0.8946563  3.693464
-
-
-
-predicted <- predict(model, test_gss, na.action = na.pass,  metric = "Rsquared")
-
-cor(predicted, test_gss$workhours)
-
-#EXTREME GRADIENT BOOSTING
-
-
-
-
-#after running all models, save them as list
-model_list <- list(
-  lm = model,
-  glmnet = model_glmnet,
-  rf = model_ranger
-)
-
-#pass list to resamples() then summarize
-
-
-
-
-#Publication
