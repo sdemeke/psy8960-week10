@@ -17,12 +17,12 @@ gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
   select(which(colMeans(is.na(.)) < 0.75)) #drop cols with >75% missingness. 538 vars left
 
 
+#do the vars need to be numeric??
 
 #Visualization
 
 gss_tbl %>% 
   ggplot(aes(x=workhours)) + geom_histogram()
-
 
 
 #Analysis
@@ -66,29 +66,44 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 3) { #default 
 }
 
 
-ml_methods <- c("lm","glmnet","ranger","xgbLinear") #
+ml_methods <- c("lm","glmnet","ranger","xgbLinear") 
  
-my_list <- vector(mode="list")
+ml_results_list <- vector(mode="list")
 
 
 for(i in 1:length(ml_methods)) {
-  
  tic()
-  
- my_list[[i]] <- ml_function(ml_model = ml_methods[i])
- 
+  ml_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
  toc()
-  
 }
 
 
 #Publication
 
-table1_tbl <- do.call("rbind", my_list) %>% 
+table1_tbl <- do.call("rbind", ml_results_list) %>% 
   mutate(algo = c("OLS Regression","Elastic Net","Random Forest", "eXtreme Gradient Boosting"),
          .before = cv_rsq)  %>% 
   select(-c(model_name)) %>% 
-  mutate(across(ends_with("_rsq"), \(x)   gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
+  mutate(across(ends_with("_rsq"), \(x) gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
+
+
+# Warning messages:
+#   1: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 2: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 3: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 4: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 5: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=variance Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
+#                                                                                                         User interrupt or internal error.
+#                                                                                                       
+#                                                                                                       6: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=extratrees Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
+#                                                                                                                                                                                                                 User interrupt or internal error.
+#                                                                                                                                                                                                               
+#                                                                                                                                                                                                               7: In nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  :
+#                                                                                                                                                                                                                                            There were missing values in resampled performance measures.
 
 
 
