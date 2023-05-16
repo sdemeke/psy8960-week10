@@ -8,22 +8,47 @@ library(tictoc)
 
 
 #Data Import and Cleaning
+
+#The following series of pipes imports the SPSS data and removes the SPSS labels 
+#such that all variables with label attributes for each value are converted to 
+#factor while variables with labels for only missing values are coerced to numeric 
+#(e.g., MOSTHRS). Then, the MOSTHRS variable is renamed according to project 
+#instructions and all missing values for this variable are dropped from the entire
+#dataset. Finally, colMeans calculates the missingness proportion for each 
+#variable and all columns with more than 75% missingness are deselected.
+
 gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
   unlabelled() %>% 
   rename(workhours = MOSTHRS) %>% 
-  drop_na(workhours) %>% #remove NAs in max hours worked variable, N = 570
+  drop_na(workhours) %>% 
   select(which(colMeans(is.na(.)) < 0.75))  #drop cols with >75% missingness. 538 vars left
 
-#do the vars need to be numeric??
 
 #Visualization
+
+#The ggplot code below graphs a univariate distribution of the workhours variable as a frequency histogram.
 
 gss_tbl %>% 
   ggplot(aes(x=workhours)) + geom_histogram()
 
 
 #Analysis
-ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 10) { #default values
+
+#The custom ml_function() takes in a dataframe (default gss_tbl), an ML model 
+#(default OLS), and a variable for the number of folds (default 10). The body of
+#the function creates indices to enable splitting the given data into a 75/25 
+#training and holdout split (random seed is fixed for reproducibility). Then, 
+#createFolds() splits the training set into the specified number of folds. In the
+#main training model function, the ML model method is specified from a function 
+#parameter, the pre processing is set to standardize the data, remove nearly zero
+#variance variables, and impute the median value for missing data. The training
+#settings further specify the cross-validaion method, the number of folds, and
+#the folds to use in resampling. The predict() generates predictions on the 
+#holdout data. Finally, the results tibble saves the name of the ML method used,
+#the cross-validated Rsquared, and the holdout Rsquared as the correlation between
+#the generated predictions and the true DV values in the holdout data.
+
+ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) { #default values
   
   set.seed(24)
   cv_index <- createDataPartition(dat$workhours, p = 0.75, list = FALSE)
@@ -63,19 +88,31 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm",no_folds = 10) { #default
 }
 
 
+#The ml_methods vector saves the names of the models to be run for the project
+#An empty list will save the results tibble created for each ML model run through
+#the custom function and the for loop iterates through each method to run each
+#respective model. The final list contains 4 data frame elements for the
+#Rquared results for each model. I chose to execute the models this way because
+#all of them can use the same caret::train() settings and for more fair comparison
+#between the final results
+
 ml_methods <- c("lm","glmnet","ranger","xgbTree") 
  
 ml_results_list <- vector(mode="list")
 
-
 for(i in 1:length(ml_methods)) {
- tic()
   ml_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
- toc()
 }
 
 
 #Publication
+
+#The final seriers of pipes first collapse the list of dataframes into one,
+#re-creates a model name variable to fit with assignment instructions, and formats
+#the Rsquared values as specified to remove any leading zeros and round all values
+#to 2 decimal places. I used gsub() instead of str_remove() because sometimes a
+#negative Rsquared is possible and it was easier for me to specify removing only
+#a leading zero with this function.
 
 table1_tbl <- do.call("rbind", ml_results_list) %>% 
   mutate(algo = c("OLS Regression","Elastic Net","Random Forest", "eXtreme Gradient Boosting"),
