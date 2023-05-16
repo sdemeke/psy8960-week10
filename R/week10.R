@@ -4,7 +4,6 @@ library(tidyverse)
 library(haven)
 library(caret)
 library(labelled)
-library(tictoc)
 
 
 #Data Import and Cleaning
@@ -14,7 +13,7 @@ library(tictoc)
 #factor while variables with labels for only missing values are coerced to numeric 
 #(e.g., MOSTHRS). Then, the MOSTHRS variable is renamed according to project 
 #instructions and all missing values for this variable are dropped from the entire
-#dataset. Finally, colMeans calculates the missingness proportion for each 
+#dataset. Finally, colMeans() calculates the missingness proportion for each 
 #variable and all columns with more than 75% missingness are deselected.
 
 gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
@@ -120,70 +119,50 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
   select(-c(model_name)) %>% 
   mutate(across(ends_with("_rsq"), \(x) gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
 
-
-# Warning messages:
-#   1: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 2: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 3: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 4: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 5: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=variance Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
-#                                                                                                         User interrupt or internal error.
-#                                                                                                       
-#                                                                                                       6: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=extratrees Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
-#                                                                                                                                                                                                                 User interrupt or internal error.
-#                                                                                                                                                                                                               
-#                                                                                                                                                                                                               7: In nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  :
-#                                                                                                                                                                                                                                            There were missing values in resampled performance measures.
-
-# A tibble: 4 × 3 --- 3 folds
-# algo                      cv_rsq ho_rsq
-# <chr>                     <chr>  <chr> 
-#   1 OLS Regression            .02    "-.02"
-# 2 Elastic Net               .80    " .71"
-# 3 Random Forest             .87    " .68"
-# 4 eXtreme Gradient Boosting .83    " .64"
-
-#--10 folds
+# > table1_tbl
 # A tibble: 4 × 3
-# algo                      cv_rsq ho_rsq
-# <chr>                     <chr>  <chr> 
+#   algo                      cv_rsq ho_rsq
+#   <chr>                     <chr>  <chr> 
 # 1 OLS Regression            .17    "-.02"
 # 2 Elastic Net               .90    " .67"
 # 3 Random Forest             .91    " .69"
 # 4 eXtreme Gradient Boosting .92    " .64"
 
 
-#running OLS reg aka lm, elastic net aka glmnet, random forest aka ranger or rf, extreme gradient boosting aka
-#on caret website, there are 3 diff methods for eXtreme with diff numbers of hyperparameters
-#xgbDART, xgbLinear, and xgbTree
+##Answers to Questions
+
+##Question 1
+#Both the k-fold CV and holdout R squared values improved dramatically
+#from the OLS regression to the other tested models. The k-fold CV Rsquared
+#was around .9 for all other three models and the holdout R squared was not much
+#different between them either. The OLS model performed the worst with a nearly
+#negative holdout R squared.
+
+#How did your results change between models? Why do you think this happened, specifically?
 
 
 
-#use 75/25 split
+##Question 2
+#Consistently, the k-fold CV result was more accurate than the holdout CV across
+#all tested models.This happened likely because the models overfitted on the
+#set of training data and underperformed when model parameters were tried out
+#on a new set of unseen and untrained data. In other words, the variance is higher
+#and the models may have been biased towards the training data.
+
+##Question 3
+#In a real-life prediction model, I would choose to use the Elastic Net model.
+#In terms of computational speed, this model was nearly 5x faster than the Random
+#Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
+#and holdout R squared values so the extra complexity in the Random Forest and
+#Gradient Boosting did not necessarily yield greater accuracy. Further, the model
+#has two generally interpretable hyperparameters that denote the level of penalty
+#and the ratio between LASSO and Ridge regression. If two models results in 
+#nearly equivalent predictions by accuracy but one is more interpretable, I would
+#think that is an advantage. A potential tradeoff with the Elastic Net could be
+#for nonlinear..??
 
 
-#for reproducibility and fair comparison across models, need same splits for training and holdout
-#create own trainControl object
-#first create train/test indexes
 
-
-#for reproducibility and fair comparison across models, need same splits for training and holdout
-#create own trainControl object
-#first create train/test indexes
-
-
-##LM
-#lm on grid search, time elapsed = 46 sec
-# Resampling results:
-#   
-#   RMSE      Rsquared   MAE     
-# 126.0067  0.1416766  32.37984
-# 
-# Tuning parameter 'intercept' was held constant at a value of TRUE
 
 ##GLMNET
 #on grid search with 3 alpha, 3 lambdas = 124 secs
@@ -214,8 +193,24 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 # Tuning parameter 'min.node.size' was held constant at a value of 5
 
 
-#when ranger on random search with no customization, time is 581 sec:
-# min.node.size  mtry  splitrule  RMSE      Rsquared   MAE     
-# 3              617  variance   4.474389  0.9340484  2.966425
-# 6              988  maxstat    6.578666  0.8638582  4.239857
-# 18             1141  variance   5.501925  0.8946563  3.693464
+# Warning messages:
+#   1: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 2: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 3: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 4: In predict.lm(modelFit, newdata) :
+#   prediction from a rank-deficient fit may be misleading
+# 5: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=variance Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
+#                                                                                                         User interrupt or internal error.
+#                                                                                                       
+#                                                                                                       6: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=extratrees Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
+#                                                                                                                                                                                                                 User interrupt or internal error.
+#                                                                                                                                                                                                               
+#                                                                                                                                                                                                               7: In nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  :
+#                                                                                                                                                                                                                                            There were missing values in resampled performance measures.
+
+
+
+
