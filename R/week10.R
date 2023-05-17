@@ -16,11 +16,11 @@ library(labelled)
 #dataset. Finally, colMeans() calculates the missingness proportion for each 
 #variable and all columns with more than 75% missingness are deselected.
 
-gss_tbl <- read_sav("../data/GSS2016.sav") %>%  #N = 2867, 961 vars
+gss_tbl <- read_sav("../data/GSS2016.sav") %>%  
   unlabelled() %>% 
   rename(workhours = MOSTHRS) %>% 
   drop_na(workhours) %>% 
-  select(which(colMeans(is.na(.)) < 0.75))  #drop cols with >75% missingness. 538 vars left
+  select(which(colMeans(is.na(.)) < 0.75))  
 
 
 #Visualization
@@ -47,7 +47,7 @@ gss_tbl %>%
 #the cross-validated Rsquared, and the holdout Rsquared as the correlation between
 #the generated predictions and the true DV values in the holdout data.
 
-ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) { #default values
+ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) { 
   
   set.seed(24)
   cv_index <- createDataPartition(dat$workhours, p = 0.75, list = FALSE)
@@ -72,17 +72,16 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) { #defaul
     )
   )
   
-  #save output in df
-  predicted <- predict(model, test_dat, na.action = na.pass)
+  # predicted <- predict(model, test_dat, na.action = na.pass)
+  # 
+  # 
+  # results <- tibble(
+  #   model_name = ml_model,
+  #   cv_rsq = max( model[["results"]][["Rsquared"]]),
+  #   ho_rsq = cor(predicted, test_dat$workhours)
+  # )
   
-  
-  results <- tibble(
-    model_name = ml_model,
-    cv_rsq = max( model[["results"]][["Rsquared"]]),
-    ho_rsq = cor(predicted, test_dat$workhours)
-  )
-  
-  return(results)
+  return(model)
   
 }
 
@@ -97,11 +96,13 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) { #defaul
 
 ml_methods <- c("lm","glmnet","ranger","xgbTree") 
  
-ml_results_list <- vector(mode="list")
+ml_model_results_list <- vector(mode="list")
 
 for(i in 1:length(ml_methods)) {
-  ml_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
+  ml_model_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
 }
+
+summary(resamples(ml_model_results_list))
 
 
 #Publication
@@ -136,11 +137,8 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 #from the OLS regression to the other tested models. The k-fold CV Rsquared
 #was around .9 for all other three models and the holdout R squared was not much
 #different between them either. The OLS model performed the worst with a nearly
-#negative holdout R squared.
-
-#How did your results change between models? Why do you think this happened, specifically?
-
-
+#negative holdout R squared. The other three models use algorithms that can lower
+#variance and overfitting compared to the poorer performing OLS model.
 
 ##Question 2
 #Consistently, the k-fold CV result was more accurate than the holdout CV across
@@ -164,21 +162,6 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 
 
 
-##GLMNET
-#on grid search with 3 alpha, 3 lambdas = 124 secs
-# alpha  lambda     RMSE       Rsquared   MAE     
-# 0.10   0.8330873   4.777404  0.9171673  3.031020   #best model
-# 0.10   2.6344535   5.830942  0.8886126  4.033140
-# 0.10   8.3308735   8.609608  0.7777801  6.194248
-# 0.55   0.8330873   6.895614  0.8400237  4.731411
-# 0.55   2.6344535   9.353078  0.7084596  6.584342
-# 0.55   8.3308735  11.160454  0.6837524  8.254906
-# 1.00   0.8330873   8.305106  0.7651537  5.724268
-# 1.00   2.6344535   9.896860  0.6824147  7.018449
-# 1.00   8.3308735  13.005730  0.6752084  9.801693
-# 
-# Rsquared was used to select the optimal model using the largest value.
-# The final values used for the model were alpha = 0.1 and lambda = 0.8330873.
 
 #RANDOM FOREST
 #when ranger on grid with no customization, time is 511 seconds
