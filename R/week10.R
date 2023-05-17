@@ -162,44 +162,6 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 #Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
 #and holdout R squared values so the extra complexity in the Random Forest and
 #Gradient Boosting did not necessarily yield greater accuracy. A potential tradeoff 
-#with the Elastic Net could be
-#for nonlinear..??
-
-
-
-
-
-#RANDOM FOREST
-#when ranger on grid with no customization, time is 511 seconds
-# mtry  splitrule   RMSE       Rsquared   MAE     
-# 2  variance    11.301201  0.8707799  8.337993
-# 2  extratrees  11.607862  0.8691268  8.586230
-# 51  variance     6.445191  0.9145326  4.324541   #best model
-# 51  extratrees   6.927534  0.9085432  4.740719
-# 1320  variance     5.863813  0.8457853  3.200832
-# 1320  extratrees   5.155011  0.8994593  3.204340
-# 
-# Tuning parameter 'min.node.size' was held constant at a value of 5
-
-
-# Warning messages:
-#   1: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 2: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 3: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 4: In predict.lm(modelFit, newdata) :
-#   prediction from a rank-deficient fit may be misleading
-# 5: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=variance Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
-#                                                                                                         User interrupt or internal error.
-#                                                                                                       
-#                                                                                                       6: model fit failed for Fold3: mtry=1320, min.node.size=5, splitrule=extratrees Error in ranger::ranger(dependent.variable.name = ".outcome", data = x,  : 
-#                                                                                                                                                                                                                 User interrupt or internal error.
-#                                                                                                                                                                                                               
-#                                                                                                                                                                                                               7: In nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  :
-#                                                                                                                                                                                                                                            There were missing values in resampled performance measures.
-
-
-
+#with the Elastic Net could be lack of ability to discover non-linear relationships
+#unlike Random Forest models which might perform better for certain types of data.
 
