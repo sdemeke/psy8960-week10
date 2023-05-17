@@ -162,8 +162,8 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 #Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
 #and holdout R squared values so the extra complexity in the Random Forest and
 #Gradient Boosting did not necessarily yield greater accuracy. A potential tradeoff 
-#with the Elastic Net could be discovery of non-linear relationships which might
-#be improved with something like Random Forest.
+#with the Elastic Net could be
+#for nonlinear..??
 
 
 
