@@ -72,16 +72,16 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) {
     )
   )
   
-  # predicted <- predict(model, test_dat, na.action = na.pass)
-  # 
-  # 
-  # results <- tibble(
-  #   model_name = ml_model,
-  #   cv_rsq = max( model[["results"]][["Rsquared"]]),
-  #   ho_rsq = cor(predicted, test_dat$workhours)
-  # )
+  predicted <- predict(model, test_dat, na.action = na.pass)
+
+
+  results <- tibble(
+    model_name = ml_model,
+    cv_rsq = max( model[["results"]][["Rsquared"]]),
+    ho_rsq = cor(predicted, test_dat$workhours)
+  )
   
-  return(model)
+  return(results)
   
 }
 
@@ -95,15 +95,23 @@ ml_function <- function(dat = gss_tbl, ml_model = "lm", no_folds = 10) {
 #between the final results
 
 ml_methods <- c("lm","glmnet","ranger","xgbTree") 
- 
-ml_model_results_list <- vector(mode="list")
+ml_results_list <- vector(mode="list")
 
 for(i in 1:length(ml_methods)) {
-  ml_model_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
+  ml_results_list[[i]] <- ml_function(ml_model = ml_methods[i])
 }
 
-summary(resamples(ml_model_results_list))
 
+#summary(resamples(ml_model_results_list))
+# Rsquared 
+#                Min.    1st Qu.     Median      Mean   3rd Qu.     Max. NA's
+# Model1 0.001808115 0.01889965 0.03491845 0.1690373 0.1508318 0.9082814    0
+# Model2 0.691053330 0.86245829 0.92254855 0.8963481 0.9543318 0.9736447    0
+# Model3 0.789026363 0.89547452 0.92140963 0.9145326 0.9601558 0.9773655    0
+# Model4 0.741761293 0.95966683 0.96667420 0.9334994 0.9770970 0.9807537    0
+
+
+dotplot(resamples(ml_model_results_list), metric="Rsquared")
 
 #Publication
 
@@ -135,28 +143,26 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 ##Question 1
 #Both the k-fold CV and holdout R squared values improved dramatically
 #from the OLS regression to the other tested models. The k-fold CV Rsquared
-#was around .9 for all other three models and the holdout R squared was not much
-#different between them either. The OLS model performed the worst with a nearly
-#negative holdout R squared. The other three models use algorithms that can lower
-#variance and overfitting compared to the poorer performing OLS model.
+#was around .9 for all other three models and the holdout R squared values were not much
+#different between them either (range .65-.69). The OLS model performed the worst with 
+#a nearly #negative holdout R squared. The other three models use algorithms 
+#that can lower variance and diminish overfitting compared to the  OLS model.
 
 ##Question 2
 #Consistently, the k-fold CV result was more accurate than the holdout CV across
-#all tested models.This happened likely because the models overfitted on the
+#all tested models. This happened likely because the models overfitted on the
 #set of training data and underperformed when model parameters were tried out
 #on a new set of unseen and untrained data. In other words, the variance is higher
-#and the models may have been biased towards the training data.
+#and the models may have been biased towards the training data so accuracy for the
+#holdout prediction was lower.
 
 ##Question 3
 #In a real-life prediction model, I would choose to use the Elastic Net model.
 #In terms of computational speed, this model was nearly 5x faster than the Random
 #Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
 #and holdout R squared values so the extra complexity in the Random Forest and
-#Gradient Boosting did not necessarily yield greater accuracy. Further, the model
-#has two generally interpretable hyperparameters that denote the level of penalty
-#and the ratio between LASSO and Ridge regression. If two models results in 
-#nearly equivalent predictions by accuracy but one is more interpretable, I would
-#think that is an advantage. A potential tradeoff with the Elastic Net could be
+#Gradient Boosting did not necessarily yield greater accuracy. A potential tradeoff 
+#with the Elastic Net could be
 #for nonlinear..??
 
 
