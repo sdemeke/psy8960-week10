@@ -3,21 +3,19 @@ setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
 library(haven)
 library(caret)
-library(labelled)
 
 
 #Data Import and Cleaning
 
 #The following series of pipes imports the SPSS data and removes the SPSS labels 
-#such that all variables with label attributes for each value are converted to 
-#factor while variables with labels for only missing values are coerced to numeric 
-#(e.g., MOSTHRS). Then, the MOSTHRS variable is renamed according to project 
+#such that all variables with numeric values are coerced to numeric and label-defined
+#NA values are left as missing. Then, the MOSTHRS variable is renamed according to project 
 #instructions and all missing values for this variable are dropped from the entire
 #dataset. Finally, colMeans() calculates the missingness proportion for each 
 #variable and all columns with more than 75% missingness are deselected.
 
 gss_tbl <- read_sav("../data/GSS2016.sav") %>%  
-  unlabelled() %>% 
+  labelled::remove_labels() %>%  
   rename(workhours = MOSTHRS) %>% 
   drop_na(workhours) %>% 
   select(which(colMeans(is.na(.)) < 0.75))  
@@ -40,8 +38,8 @@ gss_tbl %>%
 #createFolds() splits the training set into the specified number of folds. In the
 #main training model function, the ML model method is specified from a function 
 #parameter, the pre processing is set to standardize the data, remove nearly zero
-#variance variables, and impute the median value for missing data. The training
-#settings further specify the cross-validaion method, the number of folds, and
+#variance variables, and impute the median values for missing data. The training
+#settings further specify the cross-validation method, the number of folds, and
 #the folds to use in resampling. The predict() generates predictions on the 
 #holdout data. Finally, the results tibble saves the name of the ML method used,
 #the cross-validated Rsquared, and the holdout Rsquared as the correlation between
@@ -102,20 +100,9 @@ for(i in 1:length(ml_methods)) {
 }
 
 
-#summary(resamples(ml_model_results_list))
-# Rsquared 
-#                Min.    1st Qu.     Median      Mean   3rd Qu.     Max. NA's
-# Model1 0.001808115 0.01889965 0.03491845 0.1690373 0.1508318 0.9082814    0
-# Model2 0.691053330 0.86245829 0.92254855 0.8963481 0.9543318 0.9736447    0
-# Model3 0.789026363 0.89547452 0.92140963 0.9145326 0.9601558 0.9773655    0
-# Model4 0.741761293 0.95966683 0.96667420 0.9334994 0.9770970 0.9807537    0
-
-
-dotplot(resamples(ml_model_results_list), metric="Rsquared")
-
 #Publication
 
-#The final seriers of pipes first collapse the list of dataframes into one,
+#The final series of pipes first collapses the list of dataframes into one,
 #re-creates a model name variable to fit with assignment instructions, and formats
 #the Rsquared values as specified to remove any leading zeros and round all values
 #to 2 decimal places. I used gsub() instead of str_remove() because sometimes a
@@ -123,19 +110,20 @@ dotplot(resamples(ml_model_results_list), metric="Rsquared")
 #a leading zero with this function.
 
 table1_tbl <- do.call("rbind", ml_results_list) %>% 
-  mutate(algo = c("OLS Regression","Elastic Net","Random Forest", "eXtreme Gradient Boosting"),
+  mutate(algo = c("OLS Regression","Elastic Net","Random Forest", 
+                  "eXtreme Gradient Boosting"),
          .before = cv_rsq)  %>% 
   select(-c(model_name)) %>% 
-  mutate(across(ends_with("_rsq"), \(x) gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
+  mutate(across(ends_with("_rsq"),
+                \(x) gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
 
-# > table1_tbl
+
 # A tibble: 4 × 3
-#   algo                      cv_rsq ho_rsq
-#   <chr>                     <chr>  <chr> 
-# 1 OLS Regression            .17    "-.02"
-# 2 Elastic Net               .90    " .67"
-# 3 Random Forest             .91    " .69"
-# 4 eXtreme Gradient Boosting .92    " .64"
+#  algo                      cv_rsq ho_rsq
+# 1 OLS Regression            .12    .18   
+# 2 Elastic Net               .83    .66   
+# 3 Random Forest             .93    .66   
+# 4 eXtreme Gradient Boosting .93    .68  
 
 
 ##Answers to Questions
@@ -143,25 +131,28 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 ##Question 1
 #Both the k-fold CV and holdout R squared values improved dramatically
 #from the OLS regression to the other tested models. The k-fold CV Rsquared
-#was around .9 for all other three models and the holdout R squared values were not much
-#different between them either (range .65-.69). The OLS model performed the worst with 
-#a nearly #negative holdout R squared. The other three models use algorithms 
-#that can lower variance and diminish overfitting compared to the  OLS model.
+#was around .8-.9 for all other models and the holdout R squared values were not so
+#different between them either (range .66-.68). The OLS model performed the worst.
+#Even though the holdout Rsquared was greater than the training cross-validated
+#value, the Rsquared was below .2 in both cases (poor accuracy). The other three
+#models use algorithms that can lower variance and diminish overfitting compared
+#to the  OLS model.
 
 ##Question 2
-#Consistently, the k-fold CV result was more accurate than the holdout CV across
-#all tested models. This happened likely because the models overfitted on the
+#The k-fold CV result was usually more accurate than the holdout CV across
+#the tested models. This happened likely because the models overfitted on the
 #set of training data and underperformed when model parameters were tried out
 #on a new set of unseen and untrained data. In other words, the variance is higher
 #and the models may have been biased towards the training data so accuracy for the
-#holdout prediction was lower.
+#holdout predictions was lower.
 
 ##Question 3
 #In a real-life prediction model, I would choose to use the Elastic Net model.
-#In terms of computational speed, this model was nearly 5x faster than the Random
+#In terms of computational speed, this model was faster than the Random
 #Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
 #and holdout R squared values so the extra complexity in the Random Forest and
-#Gradient Boosting did not necessarily yield greater accuracy. A potential tradeoff 
-#with the Elastic Net could be lack of ability to discover non-linear relationships
-#unlike Random Forest models which might perform better for certain types of data.
-
+#Gradient Boosting did not necessarily yield greater accuracy, especially for the
+#holdout Rsquared values which were equivalent between Elastic Net and the more 
+#complex tree models. In other words, Elastic Net performed equivalently on the
+#untested data. A potential tradeoff with the Elastic Net could be lack of ability
+#to model non-linear relationships.
