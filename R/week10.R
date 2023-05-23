@@ -7,23 +7,25 @@ library(caret)
 
 #Data Import and Cleaning
 
-#The following series of pipes imports the SPSS data and removes the SPSS labels 
-#such that all variables with numeric values are coerced to numeric and label-defined
-#NA values are left as missing. Then, the MOSTHRS variable is renamed according to project 
-#instructions and all missing values for this variable are dropped from the entire
-#dataset. Finally, colMeans() calculates the missingness proportion for each 
-#variable and all columns with more than 75% missingness are deselected.
+#The following series of pipes imports the SPSS data. The default arguments in read_sav()
+#converts user-defined missings as NA. Codebook shows labels for missing responses so
+#all of these values are converted to NA in the import statement. Then, MOSTHRS is 
+#renamed according to project instructions, all missing values for this variable are 
+#dropped from the entire dataset, and it is coerced to numeric for accessible use
+#as the dependent variable. Finally, colMeans() calculates the missingness proportion for
+#each variable and all columns with more than 75% missingness are deselected.
 
 gss_tbl <- read_sav("../data/GSS2016.sav") %>%  
-  labelled::remove_labels() %>%  
   rename(workhours = MOSTHRS) %>% 
   drop_na(workhours) %>% 
+  mutate(workhours = as.numeric(workhours)) %>% 
   select(which(colMeans(is.na(.)) < 0.75))  
 
 
 #Visualization
 
-#The ggplot code below graphs a univariate distribution of the workhours variable as a frequency histogram.
+#The ggplot code below graphs a univariate distribution of the workhours variable as
+#a frequency histogram.
 
 gss_tbl %>% 
   ggplot(aes(x=workhours)) + geom_histogram()
@@ -34,7 +36,7 @@ gss_tbl %>%
 #The custom ml_function() takes in a dataframe (default gss_tbl), an ML model 
 #(default OLS), and a variable for the number of folds (default 10). The body of
 #the function creates indices to enable splitting the given data into a 75/25 
-#training and holdout split (random seed is fixed for reproducibility). Then, 
+#training and holdout split (random seed fixed for reproducibility). Then, 
 #createFolds() splits the training set into the specified number of folds. In the
 #main training model function, the ML model method is specified from a function 
 #parameter, the pre processing is set to standardize the data, remove nearly zero
@@ -102,7 +104,7 @@ for(i in 1:length(ml_methods)) {
 
 #Publication
 
-#The final series of pipes first collapses the list of dataframes into one,
+#The final series of pipes first collapses the list of dataframes into one df,
 #re-creates a model name variable to fit with assignment instructions, and formats
 #the Rsquared values as specified to remove any leading zeros and round all values
 #to 2 decimal places. I used gsub() instead of str_remove() because sometimes a
@@ -115,7 +117,8 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
          .before = cv_rsq)  %>% 
   select(-c(model_name)) %>% 
   mutate(across(ends_with("_rsq"),
-                \(x) gsub("0\\.",".",format(round(x, digits=2), nsmall = 2)) ) )
+                \(x) gsub("0\\.",".",
+                          format(round(x, digits=2), nsmall = 2)) ) )
 
 
 # A tibble: 4 × 3
@@ -149,10 +152,10 @@ table1_tbl <- do.call("rbind", ml_results_list) %>%
 ##Question 3
 #In a real-life prediction model, I would choose to use the Elastic Net model.
 #In terms of computational speed, this model was faster than the Random
-#Forest and the Gradient Boosting models but resulted in nearly equivalent k-fold
+#Forest and the Gradient Boosting models but resulted in similar k-fold
 #and holdout R squared values so the extra complexity in the Random Forest and
 #Gradient Boosting did not necessarily yield greater accuracy, especially for the
 #holdout Rsquared values which were equivalent between Elastic Net and the more 
 #complex tree models. In other words, Elastic Net performed equivalently on the
-#untested data. A potential tradeoff with the Elastic Net could be lack of ability
+#untrained data. A potential tradeoff with the Elastic Net could be lack of ability
 #to model non-linear relationships.
